@@ -1,9 +1,14 @@
 # Adversarial Autoencoder
 Replicates Adversarial Autoencoder architecture from [Makhzani, Alireza, et al. "Adversarial autoencoders." arXiv preprint arXiv:1511.05644 (2015)](https://arxiv.org/abs/1511.05644). 
 
-
-
 The code is adapted from Naresh's implementation [here](https://github.com/Naresh1318/Adversarial_Autoencoder). Thanks Naresh!
+
+## General
+
+For help and details on options, just run the script without any options:
+```
+python adversarialautoencoder.py
+```
 
 ## Training
 
