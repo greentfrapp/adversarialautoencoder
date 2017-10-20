@@ -18,7 +18,7 @@ from tensorflow.examples.tutorials.mnist import input_data
 
 # DenseNetwork class creates a network with defined nodes, activations and layer names
 # Encoder, decoder, discriminator etc. networks are based on this
-class DenseNetwork:
+class DenseNetwork(object):
 	def __init__(self, nodes_per_layer, activations_per_layer, names_per_layer, network_name):
 		self.name = network_name
 		self.layers = []
@@ -45,7 +45,7 @@ class DenseNetwork:
 
 # AdversarialAutoencoder class
 # creates its own tf.Session() for training and testing
-class AdversarialAutoencoder:
+class AdversarialAutoencoder(object):
 	def __init__(self, batch_size=100, n_epochs=1000, results_folder='./Results'):
 
 		# Create results_folder

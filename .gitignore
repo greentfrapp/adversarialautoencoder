@@ -26,6 +26,9 @@ Network Trash Folder
 Temporary Items
 .apdisk
 
+# .pyc files due to importing local .py libraries
+*.py
+
 # Directories creates from adversarialautoencoder.py
 Data
 Results
