@@ -12,6 +12,9 @@ To train the adversarial autoencoder, run:
 python adversarialautoencoder.py --train
 ```
 
+This downloads the MNIST dataset into the `./Data` directory.
+It also creates a `./Results` directory to store log files, Tensorboard files and saved models.
+
 ## Generate Sample Images
 
 ### Single Image
