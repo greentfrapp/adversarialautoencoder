@@ -51,6 +51,10 @@ python adversarialautoencoder.py --sample -rz1 [-10,10] -rz2 [-10,10] -nz1 5 -nz
 ```
 will generate 5\*2=10 images where both z1 and z2 range from -10 to 10 inclusive.
 
+Image Grid after training for 1000 epochs, batch size 100, learning rate 0.001 and beta1 0.9 on AdamOptimizer, both z1 and z2 range from -10 to 10 inclusive with 10 steps each.
+
+![alt text](https://raw.githubusercontent.com/greentfrapp/adversarialautoencoder/master/samplegrid.png "Sample Image Grid")
+
 ## Plot Latent Vectors
 
 After training a model (at least 1 epoch), encode images and plot the encodings using:
@@ -65,3 +69,7 @@ For example,
 python adversarialautoencoder.py --plot -i 1000
 ```
 will encode and plot 1000 images.
+
+Plot of latent vectors after training for 1000 epochs, batch size 100, learning rate 0.001 and beta1 0.9 on AdamOptimizer, with 10000 images from the MNIST test set.
+
+![alt text](https://raw.githubusercontent.com/greentfrapp/adversarialautoencoder/master/plot.png "Sample Image Grid")
