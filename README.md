@@ -80,12 +80,12 @@ Here are the losses from the autoencoder, discriminator and encoder (generator) 
 
 ### autoencoder_loss
 
-![alt text](https://raw.githubusercontent.com/greentfrapp/adversarialautoencoder/master/autoencoder_loss.png "Autoencoder Loss")
+![alt text](https://raw.githubusercontent.com/greentfrapp/adversarialautoencoder/master/Autoencoder_loss.png "Autoencoder Loss")
 
 ### discriminator_loss
 
-![alt text](https://raw.githubusercontent.com/greentfrapp/adversarialautoencoder/master/discriminator_loss.png "Discriminator Loss")
+![alt text](https://raw.githubusercontent.com/greentfrapp/adversarialautoencoder/master/Discriminator_loss.png "Discriminator Loss")
 
 ### encoder_loss
 
-![alt text](https://raw.githubusercontent.com/greentfrapp/adversarialautoencoder/master/encoder_loss.png "Encoder Loss")
+![alt text](https://raw.githubusercontent.com/greentfrapp/adversarialautoencoder/master/Encoder_loss.png "Encoder Loss")
