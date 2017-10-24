@@ -73,3 +73,19 @@ will encode and plot 1000 images.
 Plot of latent vectors after training for 1000 epochs, batch size 100, learning rate 0.001 and beta1 0.9 on AdamOptimizer, with 10000 images from the MNIST test set.
 
 ![alt text](https://raw.githubusercontent.com/greentfrapp/adversarialautoencoder/master/plot.png "Sample Image Grid")
+
+## Tensorboard Graphs
+
+Here are the losses from the autoencoder, discriminator and encoder (generator) across the 1000 epochs x 550 steps = 550k steps
+
+### autoencoder_loss
+
+![alt text](https://raw.githubusercontent.com/greentfrapp/adversarialautoencoder/master/autoencoder_loss.png "Autoencoder Loss")
+
+### discriminator_loss
+
+![alt text](https://raw.githubusercontent.com/greentfrapp/adversarialautoencoder/master/discriminator_loss.png "Discriminator Loss")
+
+### encoder_loss
+
+![alt text](https://raw.githubusercontent.com/greentfrapp/adversarialautoencoder/master/encoder_loss.png "Encoder Loss")
