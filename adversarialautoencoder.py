@@ -62,10 +62,9 @@ class AdversarialAutoencoder(object):
 		self.img_width = 28
 		self.img_height = 28
 		self.img_dim = self.img_width * self.img_height
-		self.z_dim = 2
+		self.z_dim = 5
 		self.batch_size = batch_size
 		self.n_epochs = n_epochs
-		self.learning_rate = 0.001
 		self.beta1 = 0.9
 		self.real_prior_mean = 0.0
 		self.real_prior_stdev = 5.0
@@ -93,6 +92,10 @@ class AdversarialAutoencoder(object):
 		self.real_prior = tf.placeholder(dtype=tf.float32, shape=[self.batch_size, self.z_dim], name='real_prior')
 		self.sample_latent_vector = tf.placeholder(dtype=tf.float32, shape=[1, self.z_dim], name='sample_latent_vector')
 
+		self.autoencoder_learning_rate = tf.placeholder(dtype=tf.float32, shape=None, name='autoencoder_learning_rate')
+		self.discriminator_learning_rate = tf.placeholder(dtype=tf.float32, shape=None, name='discriminator_learning_rate')
+		self.encoder_learning_rate = tf.placeholder(dtype=tf.float32, shape=None, name='encoder_learning_rate')
+
 		# Outputs from forwardproping networks 
 		with tf.variable_scope(tf.get_variable_scope()):
 			self.latent_vector = self.encoder.forwardprop(self.original_image)
@@ -114,9 +117,9 @@ class AdversarialAutoencoder(object):
 		self.encoder_variables = [var for var in all_variables if 'encoder' in var.name]
 
 		# Training functions
-		self.autoencoder_optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate, beta1=self.beta1).minimize(self.reconstruction_loss)
-		self.discriminator_optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate, beta1=self.beta1).minimize(self.discriminator_loss, var_list=self.discriminator_variables)
-		self.encoder_optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate, beta1=self.beta1).minimize(self.encoder_loss, var_list=self.encoder_variables)
+		self.autoencoder_optimizer = tf.train.AdamOptimizer(learning_rate=self.autoencoder_learning_rate, beta1=self.beta1).minimize(self.reconstruction_loss)
+		self.discriminator_optimizer = tf.train.AdamOptimizer(learning_rate=self.discriminator_learning_rate, beta1=self.beta1).minimize(self.discriminator_loss, var_list=self.discriminator_variables)
+		self.encoder_optimizer = tf.train.AdamOptimizer(learning_rate=self.encoder_learning_rate, beta1=self.beta1).minimize(self.encoder_loss, var_list=self.encoder_variables)
 		
 		# Things to save in Tensorboard
 		self.input_images = tf.reshape(self.original_image, [-1, self.img_width, self.img_height, 1])
@@ -139,11 +142,10 @@ class AdversarialAutoencoder(object):
 		return None
 
 	# Creates the checkpoint folders
-	def load_checkpoint_folders(self, z_dim, learning_rate, batch_size, n_epochs, beta1):
-		folder_name = "/{0}_{1}_{2}_{3}_{4}_{5}_adversarial_autoencoder".format(
+	def load_checkpoint_folders(self, z_dim, batch_size, n_epochs, beta1):
+		folder_name = "/{0}_{1}_{2}_{3}_{4}_adversarial_autoencoder".format(
 			datetime.datetime.now(),
 			z_dim,
-			learning_rate,
 			batch_size,
 			n_epochs,
 			beta1)
@@ -158,14 +160,12 @@ class AdversarialAutoencoder(object):
 		return tensorboard_path, saved_model_path, log_path
 
 	# Samples a point from a normal distribution
-	def generate_sample_prior(self, mean, var):
-		return np.random.randn(self.batch_size, self.z_dim) * var + mean
+	def generate_sample_prior(self, mean, stdev):
+		return np.random.randn(self.batch_size, self.z_dim) * stdev + mean
 
 	# Returns the losses for logging
-	def get_loss(self):
-		z_real_dist = self.generate_sample_prior(self.real_prior_mean, self.real_prior_stdev)
-		batch_x, _ = self.mnist.train.next_batch(self.batch_size)
-		a_loss, d_loss, e_loss, summary = self.sess.run([self.reconstruction_loss, self.discriminator_loss, self.encoder_loss, self.summary_op], feed_dict={self.original_image:batch_x, self.target_image:batch_x, self.real_prior:z_real_dist})
+	def get_loss(self, batch_x, z_real_dist, autoencoder_learning_rate, discriminator_learning_rate, encoder_learning_rate):
+		a_loss, d_loss, e_loss, summary = self.sess.run([self.reconstruction_loss, self.discriminator_loss, self.encoder_loss, self.summary_op], feed_dict={self.original_image:batch_x, self.target_image:batch_x, self.real_prior:z_real_dist, self.autoencoder_learning_rate:autoencoder_learning_rate, self.discriminator_learning_rate:discriminator_learning_rate, self.encoder_learning_rate:encoder_learning_rate})
 		return (a_loss, d_loss, e_loss, summary)
 
 	# Loads most recent saved model
@@ -183,7 +183,7 @@ class AdversarialAutoencoder(object):
 	# Train
 	def train(self):
 		self.step = 0
-		self.tensorboard_path, self.saved_model_path, self.log_path = self.load_checkpoint_folders(self.z_dim, self.learning_rate, self.batch_size, self.n_epochs, self.beta1)
+		self.tensorboard_path, self.saved_model_path, self.log_path = self.load_checkpoint_folders(self.z_dim, self.batch_size, self.n_epochs, self.beta1)
 		self.writer = tf.summary.FileWriter(logdir=self.tensorboard_path, graph=self.sess.graph)
 
 		for epoch in range(1, self.n_epochs + 1):
@@ -193,13 +193,27 @@ class AdversarialAutoencoder(object):
 			for batch in range(1, n_batches + 1):
 				z_real_dist = self.generate_sample_prior(self.real_prior_mean, self.real_prior_stdev)
 				batch_x, _ = self.mnist.train.next_batch(self.batch_size)
-				self.sess.run(self.autoencoder_optimizer, feed_dict={self.original_image:batch_x, self.target_image:batch_x})
-				self.sess.run(self.discriminator_optimizer, feed_dict={self.original_image: batch_x, self.target_image: batch_x, self.real_prior: z_real_dist})
-				self.sess.run(self.encoder_optimizer, feed_dict={self.original_image: batch_x, self.target_image: batch_x})
+
+				if epoch <= 50:
+					autoencoder_learning_rate = 0.01
+					discriminator_learning_rate = 0.01
+					encoder_learning_rate = 0.01
+				elif epoch <= 1000:
+					autoencoder_learning_rate = 0.001
+					discriminator_learning_rate = 0.001
+					encoder_learning_rate = 0.001
+				else:
+					autoencoder_learning_rate = 0.0001
+					discriminator_learning_rate = 0.0001
+					encoder_learning_rate = 0.0001
+
+				self.sess.run(self.autoencoder_optimizer, feed_dict={self.original_image:batch_x, self.target_image:batch_x, self.autoencoder_learning_rate:autoencoder_learning_rate, self.discriminator_learning_rate:discriminator_learning_rate, self.encoder_learning_rate:encoder_learning_rate})
+				self.sess.run(self.discriminator_optimizer, feed_dict={self.original_image: batch_x, self.target_image: batch_x, self.real_prior: z_real_dist, self.autoencoder_learning_rate:autoencoder_learning_rate, self.discriminator_learning_rate:discriminator_learning_rate, self.encoder_learning_rate:encoder_learning_rate})
+				self.sess.run(self.encoder_optimizer, feed_dict={self.original_image: batch_x, self.target_image: batch_x, self.autoencoder_learning_rate:autoencoder_learning_rate, self.discriminator_learning_rate:discriminator_learning_rate, self.encoder_learning_rate:encoder_learning_rate})
 
 				# Print log and write to log.txt every 50 batches
 				if batch % 50 == 0:
-					a_loss, d_loss, e_loss, summary = self.get_loss()
+					a_loss, d_loss, e_loss, summary = self.get_loss(batch_x, z_real_dist, autoencoder_learning_rate, discriminator_learning_rate, encoder_learning_rate)
 					self.writer.add_summary(summary, global_step=self.step)
 					print("Epoch: {}, iteration: {}".format(epoch, batch))
 					print("Autoencoder Loss: {}".format(a_loss))
@@ -271,7 +285,7 @@ class AdversarialAutoencoder(object):
 	def plot_latent_vectors(self, dataset_x=None, dataset_y=None, n_test=10000):
 		if dataset_x is None or dataset_y is None:
 			print('Loading {} images from MNIST test data'.format(n_test))
-			dataset_x, dataset_y = self.mnist.test.next_batch(n_test)
+			dataset_x, dataset_y = self.mnist.train.next_batch(n_test)
 
 		colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"]
 		
@@ -294,8 +308,8 @@ class AdversarialAutoencoder(object):
 			for data_no, datapoint in enumerate(z):
 				if batch_y[data_no].argmax() not in labeled_data:
 					labeled_data[batch_y[data_no].argmax()] = {'x':[], 'y':[]}
-				labeled_data[batch_y[data_no].argmax()]['x'].append(datapoint[0])
-				labeled_data[batch_y[data_no].argmax()]['y'].append(datapoint[1])
+				labeled_data[batch_y[data_no].argmax()]['x'].append(datapoint[3])
+				labeled_data[batch_y[data_no].argmax()]['y'].append(datapoint[4])
 			for label in labeled_data:
 				if last_batch:
 					ax.scatter(labeled_data[label]['x'], labeled_data[label]['y'], c=colors[label], label=label, edgecolors='none')
