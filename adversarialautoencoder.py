@@ -139,13 +139,12 @@ class AdversarialAutoencoder(object):
 		return None
 
 	# Creates the checkpoint folders
-	def load_checkpoint_folders(self, z_dim, batch_size, n_epochs, beta1):
-		folder_name = "/{0}_{1}_{2}_{3}_{4}_adversarial_autoencoder".format(
+	def load_checkpoint_folders(self, z_dim, batch_size, n_epochs):
+		folder_name = "/{0}_{1}_{2}_{3}_adversarial_autoencoder".format(
 			datetime.datetime.now(),
 			z_dim,
 			batch_size,
-			n_epochs,
-			beta1)
+			n_epochs)
 		tensorboard_path = self.results_path + folder_name + '/tensorboard'
 		saved_model_path = self.results_path + folder_name + '/saved_models/'
 		log_path = self.results_path + folder_name + '/log'
@@ -180,7 +179,7 @@ class AdversarialAutoencoder(object):
 	# Train
 	def train(self):
 		self.step = 0
-		self.tensorboard_path, self.saved_model_path, self.log_path = self.load_checkpoint_folders(self.z_dim, self.batch_size, self.n_epochs, self.beta1)
+		self.tensorboard_path, self.saved_model_path, self.log_path = self.load_checkpoint_folders(self.z_dim, self.batch_size, self.n_epochs)
 		self.writer = tf.summary.FileWriter(logdir=self.tensorboard_path, graph=self.sess.graph)
 
 		for epoch in range(1, self.n_epochs + 1):
