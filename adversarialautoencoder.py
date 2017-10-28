@@ -12,6 +12,7 @@ import os
 import datetime
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
+from sklearn import manifold
 
 from tensorflow.examples.tutorials.mnist import input_data
 
@@ -62,12 +63,12 @@ class AdversarialAutoencoder(object):
 		self.img_width = 28
 		self.img_height = 28
 		self.img_dim = self.img_width * self.img_height
-		self.z_dim = 5
+		self.z_dim = 2
 		self.batch_size = batch_size
 		self.n_epochs = n_epochs
-		self.beta1 = 0.9
 		self.real_prior_mean = 0.0
 		self.real_prior_stdev = 5.0
+		self.learning_rate = 0.001
 
 		# Initialize networks
 		self.encoder = DenseNetwork(
@@ -92,10 +93,6 @@ class AdversarialAutoencoder(object):
 		self.real_prior = tf.placeholder(dtype=tf.float32, shape=[self.batch_size, self.z_dim], name='real_prior')
 		self.sample_latent_vector = tf.placeholder(dtype=tf.float32, shape=[1, self.z_dim], name='sample_latent_vector')
 
-		self.autoencoder_learning_rate = tf.placeholder(dtype=tf.float32, shape=None, name='autoencoder_learning_rate')
-		self.discriminator_learning_rate = tf.placeholder(dtype=tf.float32, shape=None, name='discriminator_learning_rate')
-		self.encoder_learning_rate = tf.placeholder(dtype=tf.float32, shape=None, name='encoder_learning_rate')
-
 		# Outputs from forwardproping networks 
 		with tf.variable_scope(tf.get_variable_scope()):
 			self.latent_vector = self.encoder.forwardprop(self.original_image)
@@ -117,9 +114,9 @@ class AdversarialAutoencoder(object):
 		self.encoder_variables = [var for var in all_variables if 'encoder' in var.name]
 
 		# Training functions
-		self.autoencoder_optimizer = tf.train.AdamOptimizer(learning_rate=self.autoencoder_learning_rate, beta1=self.beta1).minimize(self.reconstruction_loss)
-		self.discriminator_optimizer = tf.train.AdamOptimizer(learning_rate=self.discriminator_learning_rate, beta1=self.beta1).minimize(self.discriminator_loss, var_list=self.discriminator_variables)
-		self.encoder_optimizer = tf.train.AdamOptimizer(learning_rate=self.encoder_learning_rate, beta1=self.beta1).minimize(self.encoder_loss, var_list=self.encoder_variables)
+		self.autoencoder_optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.reconstruction_loss)
+		self.discriminator_optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.discriminator_loss, var_list=self.discriminator_variables)
+		self.encoder_optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.encoder_loss, var_list=self.encoder_variables)
 		
 		# Things to save in Tensorboard
 		self.input_images = tf.reshape(self.original_image, [-1, self.img_width, self.img_height, 1])
@@ -164,8 +161,8 @@ class AdversarialAutoencoder(object):
 		return np.random.randn(self.batch_size, self.z_dim) * stdev + mean
 
 	# Returns the losses for logging
-	def get_loss(self, batch_x, z_real_dist, autoencoder_learning_rate, discriminator_learning_rate, encoder_learning_rate):
-		a_loss, d_loss, e_loss, summary = self.sess.run([self.reconstruction_loss, self.discriminator_loss, self.encoder_loss, self.summary_op], feed_dict={self.original_image:batch_x, self.target_image:batch_x, self.real_prior:z_real_dist, self.autoencoder_learning_rate:autoencoder_learning_rate, self.discriminator_learning_rate:discriminator_learning_rate, self.encoder_learning_rate:encoder_learning_rate})
+	def get_loss(self, batch_x, z_real_dist):
+		a_loss, d_loss, e_loss, summary = self.sess.run([self.reconstruction_loss, self.discriminator_loss, self.encoder_loss, self.summary_op], feed_dict={self.original_image:batch_x, self.target_image:batch_x, self.real_prior:z_real_dist})
 		return (a_loss, d_loss, e_loss, summary)
 
 	# Loads most recent saved model
@@ -194,26 +191,17 @@ class AdversarialAutoencoder(object):
 				z_real_dist = self.generate_sample_prior(self.real_prior_mean, self.real_prior_stdev)
 				batch_x, _ = self.mnist.train.next_batch(self.batch_size)
 
-				if epoch <= 50:
-					autoencoder_learning_rate = 0.01
-					discriminator_learning_rate = 0.01
-					encoder_learning_rate = 0.01
-				elif epoch <= 1000:
-					autoencoder_learning_rate = 0.001
-					discriminator_learning_rate = 0.001
-					encoder_learning_rate = 0.001
-				else:
-					autoencoder_learning_rate = 0.0001
-					discriminator_learning_rate = 0.0001
-					encoder_learning_rate = 0.0001
+				autoencoder_learning_rate = 0.001
+				discriminator_learning_rate = 0.001
+				encoder_learning_rate = 0.001
 
-				self.sess.run(self.autoencoder_optimizer, feed_dict={self.original_image:batch_x, self.target_image:batch_x, self.autoencoder_learning_rate:autoencoder_learning_rate, self.discriminator_learning_rate:discriminator_learning_rate, self.encoder_learning_rate:encoder_learning_rate})
-				self.sess.run(self.discriminator_optimizer, feed_dict={self.original_image: batch_x, self.target_image: batch_x, self.real_prior: z_real_dist, self.autoencoder_learning_rate:autoencoder_learning_rate, self.discriminator_learning_rate:discriminator_learning_rate, self.encoder_learning_rate:encoder_learning_rate})
-				self.sess.run(self.encoder_optimizer, feed_dict={self.original_image: batch_x, self.target_image: batch_x, self.autoencoder_learning_rate:autoencoder_learning_rate, self.discriminator_learning_rate:discriminator_learning_rate, self.encoder_learning_rate:encoder_learning_rate})
+				self.sess.run(self.autoencoder_optimizer, feed_dict={self.original_image:batch_x, self.target_image:batch_x})
+				self.sess.run(self.discriminator_optimizer, feed_dict={self.original_image: batch_x, self.target_image: batch_x, self.real_prior: z_real_dist, })
+				self.sess.run(self.encoder_optimizer, feed_dict={self.original_image: batch_x, self.target_image: batch_x})
 
 				# Print log and write to log.txt every 50 batches
 				if batch % 50 == 0:
-					a_loss, d_loss, e_loss, summary = self.get_loss(batch_x, z_real_dist, autoencoder_learning_rate, discriminator_learning_rate, encoder_learning_rate)
+					a_loss, d_loss, e_loss, summary = self.get_loss(batch_x, z_real_dist)
 					self.writer.add_summary(summary, global_step=self.step)
 					print("Epoch: {}, iteration: {}".format(epoch, batch))
 					print("Autoencoder Loss: {}".format(a_loss))
@@ -236,12 +224,31 @@ class AdversarialAutoencoder(object):
 		return None
 
 	# Generate a single sample image
-	def generate_sample_image(self, sample_latent_vector=[0., 0.]):
-		self.generate_sample_image_grid(
-			n_x=1, 
-			x_range=[sample_latent_vector[0], sample_latent_vector[0] + 1.],
-			n_y=1,
-			y_range=[sample_latent_vector[1], sample_latent_vector[1] + 1.])
+	def generate_sample_image(self, sample_latent_vector=None):
+		if sample_latent_vector is None:
+			sample_latent_vector = np.zeros(self.z_dim)
+		elif len(sample_latent_vector) < self.z_dim:
+			print("Insufficient dimensions for latent vector, appending zeros...")
+			sample_latent_vector = np.concatenate((sample_latent_vector, np.zeros(self.z_dim - len(sample_latent_vector))))
+		elif len(sample_latent_vector) > self.z_dim:
+			print("Too many dimensions for latent vector, shortening vector...")
+			sample_latent_vector = sample_latent_vector[:self.z_dim]
+		print("Generating image for latent vector: {}".format(sample_latent_vector))
+		scale_x = 8.
+		scale_y = 8.
+		fig = plt.figure(figsize=(scale_x, scale_y))
+		gs = gridspec.GridSpec(1, 1)
+		z = np.reshape(sample_latent_vector, (1, self.z_dim))
+		x = self.sess.run(self.sample_image, feed_dict={self.sample_latent_vector: z})
+		ax = plt.Subplot(fig, gs[0])
+		img = np.array(x.tolist()).reshape(self.img_width, self.img_height)
+		ax.imshow(img, cmap='gray')
+		ax.set_xticks([])
+		ax.set_yticks([])
+		ax.set_aspect('equal')
+		fig.add_subplot(ax)
+		plt.show()
+		return None
 		
 	# Generate a grid of sample images
 	def generate_sample_image_grid(self, n_x=10, x_range=[-10, 10], n_y=10, y_range=[-10, 10]):
@@ -268,8 +275,8 @@ class AdversarialAutoencoder(object):
 		fig = plt.figure(figsize=(n_x*scale_x, n_y*scale_y))
 		gs = gridspec.GridSpec(n_y, n_x, wspace=0.0, hspace=0.0)
 
-		for i,g in enumerate(gs):
-			z = np.concatenate(([x_points[int(i % n_x)]], [y_points[int(i / n_x)]]))
+		for i, g in enumerate(gs):
+			z = np.concatenate(([x_points[int(i % n_x)]], [y_points[int(i / n_x)]], np.zeros(self.z_dim - 2)))
 			z = np.reshape(z, (1, 2))
 			x = self.sess.run(self.sample_image, feed_dict={self.sample_latent_vector: z})
 			ax = plt.Subplot(fig, g)
@@ -280,6 +287,7 @@ class AdversarialAutoencoder(object):
 			ax.set_aspect('equal')
 			fig.add_subplot(ax)
 		plt.show()
+		return None
 
 	# Encodes images and plots the encodings
 	def plot_latent_vectors(self, dataset_x=None, dataset_y=None, n_test=10000):
@@ -304,12 +312,13 @@ class AdversarialAutoencoder(object):
 				batch_y = dataset_y[plotted_datapoints:plotted_datapoints + self.batch_size]
 
 			z = self.sess.run(self.latent_vector, feed_dict={self.original_image: batch_x})
+			
 			labeled_data = {}
 			for data_no, datapoint in enumerate(z):
 				if batch_y[data_no].argmax() not in labeled_data:
 					labeled_data[batch_y[data_no].argmax()] = {'x':[], 'y':[]}
-				labeled_data[batch_y[data_no].argmax()]['x'].append(datapoint[3])
-				labeled_data[batch_y[data_no].argmax()]['y'].append(datapoint[4])
+				labeled_data[batch_y[data_no].argmax()]['x'].append(datapoint[0])
+				labeled_data[batch_y[data_no].argmax()]['y'].append(datapoint[1])
 			for label in labeled_data:
 				if last_batch:
 					ax.scatter(labeled_data[label]['x'], labeled_data[label]['y'], c=colors[label], label=label, edgecolors='none')
@@ -318,6 +327,54 @@ class AdversarialAutoencoder(object):
 			plotted_datapoints += self.batch_size
 		ax.legend()
 		plt.show()
+		return None
+
+	def plot_high_dim(self, dataset_x=None, dataset_y=None, n_test=10000):
+		if dataset_x is None or dataset_y is None:
+			print('Loading {} images from MNIST test data'.format(n_test))
+			dataset_x, dataset_y = self.mnist.test.next_batch(n_test)
+
+		colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"]
+
+		n_datapoints = len(dataset_x)
+		plotted_datapoints = 0
+		fig, ax = plt.subplots()
+		last_batch = False
+		z = None
+		while not last_batch:
+			if n_datapoints - plotted_datapoints < 2 * self.batch_size:
+				last_batch = True
+			if last_batch:
+				batch_x = dataset_x[plotted_datapoints:]
+				batch_y = dataset_y[plotted_datapoints:]
+			else:
+				batch_x = dataset_x[plotted_datapoints:plotted_datapoints + self.batch_size]
+				batch_y = dataset_y[plotted_datapoints:plotted_datapoints + self.batch_size]
+
+			batch_z = self.sess.run(self.latent_vector, feed_dict={self.original_image: batch_x})
+
+			if z is None:
+				z = batch_z
+			else:
+				z = np.concatenate((z, batch_z))
+
+			plotted_datapoints += self.batch_size
+
+		z = manifold.TSNE(n_components=2).fit_transform(z)
+		#z = manifold.MDS(n_components=2).fit_transform(z)
+
+		labeled_data = {}
+		for data_no, datapoint in enumerate(z):
+			if dataset_y[data_no].argmax() not in labeled_data:
+				labeled_data[dataset_y[data_no].argmax()] = {'x':[], 'y':[]}
+			labeled_data[dataset_y[data_no].argmax()]['x'].append(datapoint[0])
+			labeled_data[dataset_y[data_no].argmax()]['y'].append(datapoint[1])
+		for label in labeled_data:
+			ax.scatter(labeled_data[label]['x'], labeled_data[label]['y'], c=colors[label], edgecolors='none')
+
+		ax.legend()
+		plt.show()
+		return None
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(
@@ -359,6 +416,10 @@ if __name__ == "__main__":
 		action='store_true',
 		default=False,
 		help='Convert images to latent vectors and plot vectors')
+	parser.add_argument('--plot_hi', 
+		action='store_true',
+		default=False,
+		help='Convert images to latent vectors and plot vectors via t-SNE mapping')
 	parser.add_argument('-i', '--no_images',
 		action='store',
 		default=10000,
@@ -388,5 +449,9 @@ if __name__ == "__main__":
 		model = AdversarialAutoencoder()
 		model.load_last_saved_model()
 		model.plot_latent_vectors(n_test=int(args.no_images))
+	elif args.plot_hi:
+		model = AdversarialAutoencoder()
+		model.load_last_saved_model()
+		model.plot_high_dim(n_test=int(args.no_images))
 	else:
 		parser.print_help()
