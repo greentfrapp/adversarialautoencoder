@@ -69,6 +69,7 @@ class AdversarialAutoencoder(object):
 		self.real_prior_mean = 0.0
 		self.real_prior_stdev = 5.0
 		self.learning_rate = 0.001
+		self.n_classes = 10
 
 		# Initialize networks
 		self.encoder = DenseNetwork(
@@ -328,12 +329,13 @@ class AdversarialAutoencoder(object):
 		plt.show()
 		return None
 
-	def plot_high_dim(self, dataset_x=None, dataset_y=None, n_test=10000):
+	def plot_high_dim(self, dataset_x=None, dataset_y=None, n_test=10000, custom_latent_vectors=None):
 		if dataset_x is None or dataset_y is None:
 			print('Loading {} images from MNIST test data'.format(n_test))
 			dataset_x, dataset_y = self.mnist.test.next_batch(n_test)
 
-		colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"]
+		colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf", "#FFFFFF"]
+		edgecolors = ["none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "#000000"]
 
 		n_datapoints = len(dataset_x)
 		plotted_datapoints = 0
@@ -359,17 +361,31 @@ class AdversarialAutoencoder(object):
 
 			plotted_datapoints += self.batch_size
 
+		if custom_latent_vectors is not None:
+			custom_latent_vectors = np.array(custom_latent_vectors)
+			assert custom_latent_vectors.shape[-1] == self.z_dim
+			assert len(custom_latent_vectors.shape) == 2
+			z = np.concatenate((z, custom_latent_vectors))
+
 		z = manifold.TSNE(n_components=2).fit_transform(z)
 		#z = manifold.MDS(n_components=2).fit_transform(z)
 
+		# convert one-hot vectors to labels
+		labels = []
+		for i, onehotlabel in enumerate(dataset_y):
+			labels += [np.argmax(onehotlabel)]
+		if custom_latent_vectors is not None:
+			# append custom labels to labels, where custom label = self.n_classes
+			labels = np.concatenate((labels, np.ones(len(custom_latent_vectors))*(self.n_classes))).astype(int)
+
 		labeled_data = {}
 		for data_no, datapoint in enumerate(z):
-			if dataset_y[data_no].argmax() not in labeled_data:
-				labeled_data[dataset_y[data_no].argmax()] = {'x':[], 'y':[]}
-			labeled_data[dataset_y[data_no].argmax()]['x'].append(datapoint[0])
-			labeled_data[dataset_y[data_no].argmax()]['y'].append(datapoint[1])
+			if labels[data_no] not in labeled_data:
+				labeled_data[labels[data_no]] = {'x':[], 'y':[]}
+			labeled_data[labels[data_no]]['x'].append(datapoint[0])
+			labeled_data[labels[data_no]]['y'].append(datapoint[1])
 		for label in labeled_data:
-			ax.scatter(labeled_data[label]['x'], labeled_data[label]['y'], c=colors[label], edgecolors='none')
+			ax.scatter(labeled_data[label]['x'], labeled_data[label]['y'], c=colors[label], label=label, edgecolors=edgecolors[label])
 
 		ax.legend()
 		plt.show()
@@ -423,6 +439,10 @@ if __name__ == "__main__":
 		action='store',
 		default=10000,
 		help='Number of images to plot (default 10000)')
+	parser.add_argument('--custom_latent_vectors',
+		action='store',
+		default=None,
+		help='Set of latent vectors to map in t-SNE')
 	args = parser.parse_args()
 
 	if args.train:
@@ -451,6 +471,6 @@ if __name__ == "__main__":
 	elif args.plot_hi:
 		model = AdversarialAutoencoder()
 		model.load_last_saved_model()
-		model.plot_high_dim(n_test=int(args.no_images))
+		model.plot_high_dim(n_test=int(args.no_images), custom_latent_vectors=eval(args.custom_latent_vectors))
 	else:
 		parser.print_help()
