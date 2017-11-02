@@ -16,6 +16,9 @@ from sklearn import manifold
 
 from tensorflow.examples.tutorials.mnist import input_data
 
+random.seed(1)
+np.random.seed(1)
+tf.set_random_seed(1)
 
 # DenseNetwork class creates a network with defined nodes, activations and layer names
 # Encoder, decoder, discriminator etc. networks are based on this
@@ -170,10 +173,10 @@ class AdversarialAutoencoder(object):
 		if model_directory is None:
 			all_results = os.listdir(self.results_path)
 			all_results.sort()
-			if tf.train.latest_checkpoint(self.results_path + '/' + all_results[-1] + '/Saved_models/') is None:
+			if tf.train.latest_checkpoint(self.results_path + '/' + all_results[-1] + '/saved_models/') is None:
 				print("No saved model found.")
 				quit()
-			model_directory = self.results_path + '/' + all_results[-1] + '/Saved_models/'
+			model_directory = self.results_path + '/' + all_results[-1] + '/saved_models/'
 		self.saver.restore(self.sess, save_path=tf.train.latest_checkpoint(model_directory))
 		return None
 
@@ -332,7 +335,7 @@ class AdversarialAutoencoder(object):
 	def plot_high_dim(self, dataset_x=None, dataset_y=None, n_test=10000, custom_latent_vectors=None):
 		if dataset_x is None or dataset_y is None:
 			print('Loading {} images from MNIST test data'.format(n_test))
-			dataset_x, dataset_y = self.mnist.test.next_batch(n_test)
+			dataset_x, dataset_y = self.mnist.test.next_batch(n_test, shuffle=False)
 
 		colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf", "#FFFFFF"]
 		edgecolors = ["none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "#000000"]
@@ -367,7 +370,7 @@ class AdversarialAutoencoder(object):
 			assert len(custom_latent_vectors.shape) == 2
 			z = np.concatenate((z, custom_latent_vectors))
 
-		z = manifold.TSNE(n_components=2).fit_transform(z)
+		z = manifold.TSNE(n_components=2, random_state=1).fit_transform(z)
 		#z = manifold.MDS(n_components=2).fit_transform(z)
 
 		# convert one-hot vectors to labels
