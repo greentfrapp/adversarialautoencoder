@@ -16,26 +16,26 @@ Reproducible sampling is ensured via setting a random seed and shuffle=False
 
 import numpy as np
 import random
-from sklearn import svm
+from sklearn.svm import OneClassSVM
 from sklearn.covariance import EllipticEnvelope
 from sklearn.ensemble import IsolationForest
-from sklearn.neighbors import LocalOutlierFactor
+#from sklearn.neighbors import LocalOutlierFactor
 
 from tensorflow.examples.tutorials.mnist import input_data
 
 random_seed = np.random.RandomState(1)
 
 classifiers = {
-	"One-class SVM": svm.OneClassSVM(
+	"One-class SVM": OneClassSVM(
 		random_state=random_seed),
-	"Robust covariance": EllipticEnvelope(
-		contamination=0.05,
-		random_state=random_seed),
+	#"Robust covariance": EllipticEnvelope(
+	#	contamination=0.05,
+	#	random_state=random_seed),
 	"Isolation Forest": IsolationForest(
 		contamination=0.05,
-		random_state=random_seed),
-	"Local Outlier Factor": LocalOutlierFactor(
-		contamination=0.05)
+		random_state=random_seed)
+	#"Local Outlier Factor": LocalOutlierFactor(
+	#	contamination=0.05)
 }
 
 # shuffle with fixed seed
@@ -92,7 +92,10 @@ def generate_mnist_anomaly_data(contamination=0.05, n_data=5000):
 
 def main():
 	
-	training_data, training_labels = generate_mnist_anomaly_data()
+	contamination = 0.05
+	n_data = 5000
+
+	training_data, training_labels = generate_mnist_anomaly_data(contamination=contamination, n_data=n_data)
 	# call fit and predict and print percentage error
 	for classifier_name, classifier in classifiers.items():
 		if classifier_name == "Local Outlier Factor":
@@ -101,7 +104,7 @@ def main():
 			classifier.fit(training_data)
 			predicted_labels = classifier.predict(training_data)
 		n_errors = (predicted_labels != training_labels).sum()
-		percent_error = 100. * n_errors / total_training_size
+		percent_error = 100. * n_errors / n_data
 		print("{} percentage error: {}".format(classifier_name, percent_error))
 
 if __name__ == "__main__":
