@@ -6,6 +6,7 @@ Refer to Appendix A.1 from paper for implementation details
 """
 
 import argparse
+import random
 import tensorflow as tf
 import numpy as np
 import os
@@ -13,6 +14,7 @@ import datetime
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
 from sklearn import manifold
+from sklearn.decomposition import PCA
 
 from tensorflow.examples.tutorials.mnist import input_data
 
@@ -50,7 +52,7 @@ class DenseNetwork(object):
 # AdversarialAutoencoder class
 # creates its own tf.Session() for training and testing
 class AdversarialAutoencoder(object):
-	def __init__(self, batch_size=100, n_epochs=1000, results_folder='./Results'):
+	def __init__(self, z_dim=2, batch_size=100, n_epochs=1000, results_folder='./Results'):
 
 		# Create results_folder
 		self.results_path = results_folder + '/AdversarialAutoencoder'
@@ -66,7 +68,7 @@ class AdversarialAutoencoder(object):
 		self.img_width = 28
 		self.img_height = 28
 		self.img_dim = self.img_width * self.img_height
-		self.z_dim = 2
+		self.z_dim = z_dim
 		self.batch_size = batch_size
 		self.n_epochs = n_epochs
 		self.real_prior_mean = 0.0
@@ -250,7 +252,8 @@ class AdversarialAutoencoder(object):
 		ax.set_yticks([])
 		ax.set_aspect('equal')
 		fig.add_subplot(ax)
-		plt.show()
+		plt.show(block=False)
+		raw_input("Hit Enter To Close")
 		return None
 		
 	# Generate a grid of sample images
@@ -289,50 +292,48 @@ class AdversarialAutoencoder(object):
 			ax.set_yticks([])
 			ax.set_aspect('equal')
 			fig.add_subplot(ax)
-		plt.show()
+		plt.show(block=False)
+		raw_input("Hit Enter To Close")
 		return None
 
 	# Encodes images and plots the encodings
 	def plot_latent_vectors(self, dataset_x=None, dataset_y=None, n_test=10000):
 		if dataset_x is None or dataset_y is None:
 			print('Loading {} images from MNIST test data'.format(n_test))
-			dataset_x, dataset_y = self.mnist.train.next_batch(n_test)
+			dataset_x, dataset_y = self.mnist.test.next_batch(n_test)
 
 		colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"]
 		
 		n_datapoints = len(dataset_x)
-		plotted_datapoints = 0
 		fig, ax = plt.subplots()
-		last_batch = False
-		while not last_batch:
-			if n_datapoints - plotted_datapoints < 2 * self.batch_size:
-				last_batch = True
-			if last_batch:
-				batch_x = dataset_x[plotted_datapoints:]
-				batch_y = dataset_y[plotted_datapoints:]
-			else:
-				batch_x = dataset_x[plotted_datapoints:plotted_datapoints + self.batch_size]
-				batch_y = dataset_y[plotted_datapoints:plotted_datapoints + self.batch_size]
+		n_batch = int(n_datapoints / self.batch_size)
+		batch_no = 0
+		plot_data = {}
 
-			z = self.sess.run(self.latent_vector, feed_dict={self.original_image: batch_x})
+		while batch_no < n_batch:
 			
-			labeled_data = {}
-			for data_no, datapoint in enumerate(z):
-				if batch_y[data_no].argmax() not in labeled_data:
-					labeled_data[batch_y[data_no].argmax()] = {'x':[], 'y':[]}
-				labeled_data[batch_y[data_no].argmax()]['x'].append(datapoint[0])
-				labeled_data[batch_y[data_no].argmax()]['y'].append(datapoint[1])
-			for label in labeled_data:
-				if last_batch:
-					ax.scatter(labeled_data[label]['x'], labeled_data[label]['y'], c=colors[label], label=label, edgecolors='none')
-				else:
-					ax.scatter(labeled_data[label]['x'], labeled_data[label]['y'], c=colors[label], edgecolors='none')
-			plotted_datapoints += self.batch_size
+			batch_x = dataset_x[batch_no * self.batch_size:(batch_no + 1) * self.batch_size]
+			batch_y = dataset_y[batch_no * self.batch_size:(batch_no + 1) * self.batch_size]
+
+			batch_z = self.sess.run(self.latent_vector, feed_dict={self.original_image: batch_x})
+			
+			for i, z in enumerate(batch_z):
+				if batch_y[i].argmax() not in plot_data:
+					plot_data[batch_y[i].argmax()] = {'x':[], 'y':[]}
+				plot_data[batch_y[i].argmax()]['x'].append(z[0])
+				plot_data[batch_y[i].argmax()]['y'].append(z[1])
+
+			batch_no += 1
+
+		for label, data in plot_data.items():
+			ax.scatter(data['x'], data['y'], c=colors[label], label=label, edgecolors='none')
+
 		ax.legend()
-		plt.show()
+		plt.show(block=False)
+		raw_input("Hit Enter To Close")
 		return None
 
-	def plot_high_dim(self, dataset_x=None, dataset_y=None, n_test=10000, custom_latent_vectors=None):
+	def plot_high_dim(self, dataset_x=None, dataset_y=None, n_test=10000, custom_latent_vectors=[]):
 		if dataset_x is None or dataset_y is None:
 			print('Loading {} images from MNIST test data'.format(n_test))
 			dataset_x, dataset_y = self.mnist.test.next_batch(n_test, shuffle=False)
@@ -341,57 +342,50 @@ class AdversarialAutoencoder(object):
 		edgecolors = ["none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "#000000"]
 
 		n_datapoints = len(dataset_x)
-		plotted_datapoints = 0
 		fig, ax = plt.subplots()
-		last_batch = False
-		z = None
-		while not last_batch:
-			if n_datapoints - plotted_datapoints < 2 * self.batch_size:
-				last_batch = True
-			if last_batch:
-				batch_x = dataset_x[plotted_datapoints:]
-				batch_y = dataset_y[plotted_datapoints:]
-			else:
-				batch_x = dataset_x[plotted_datapoints:plotted_datapoints + self.batch_size]
-				batch_y = dataset_y[plotted_datapoints:plotted_datapoints + self.batch_size]
+		n_batch = int(n_datapoints / self.batch_size)
+		batch_no = 0
+		all_z = None
+		plot_data = {}
+
+		while batch_no < n_batch:
+
+			batch_x = dataset_x[batch_no * self.batch_size:(batch_no + 1) * self.batch_size]
+			batch_y = dataset_y[batch_no * self.batch_size:(batch_no + 1) * self.batch_size]
 
 			batch_z = self.sess.run(self.latent_vector, feed_dict={self.original_image: batch_x})
 
-			if z is None:
-				z = batch_z
+			if all_z is None:
+				all_z = batch_z
 			else:
-				z = np.concatenate((z, batch_z))
+				all_z = np.concatenate((all_z, batch_z))
 
-			plotted_datapoints += self.batch_size
+			batch_no += 1
 
-		if custom_latent_vectors is not None:
-			custom_latent_vectors = np.array(custom_latent_vectors)
-			assert custom_latent_vectors.shape[-1] == self.z_dim
-			assert len(custom_latent_vectors.shape) == 2
-			z = np.concatenate((z, custom_latent_vectors))
+		pca = PCA(n_components=2, random_state=1)
+		pca.fit(all_z)
 
-		z = manifold.TSNE(n_components=2, random_state=1).fit_transform(z)
-		#z = manifold.MDS(n_components=2).fit_transform(z)
+		transformed_z = pca.transform(all_z)
+		for i, z in enumerate(transformed_z):
+			if dataset_y[i].argmax() not in plot_data:
+				plot_data[dataset_y[i].argmax()] = {'x':[], 'y':[]}
+			plot_data[dataset_y[i].argmax()]['x'].append(z[0])
+			plot_data[dataset_y[i].argmax()]['y'].append(z[1])
+		for label, data in plot_data.items():
+			ax.scatter(data['x'], data['y'], c=colors[label], label=label, edgecolors=edgecolors[label])
 
-		# convert one-hot vectors to labels
-		labels = []
-		for i, onehotlabel in enumerate(dataset_y):
-			labels += [np.argmax(onehotlabel)]
-		if custom_latent_vectors is not None:
-			# append custom labels to labels, where custom label = self.n_classes
-			labels = np.concatenate((labels, np.ones(len(custom_latent_vectors))*(self.n_classes))).astype(int)
-
-		labeled_data = {}
-		for data_no, datapoint in enumerate(z):
-			if labels[data_no] not in labeled_data:
-				labeled_data[labels[data_no]] = {'x':[], 'y':[]}
-			labeled_data[labels[data_no]]['x'].append(datapoint[0])
-			labeled_data[labels[data_no]]['y'].append(datapoint[1])
-		for label in labeled_data:
-			ax.scatter(labeled_data[label]['x'], labeled_data[label]['y'], c=colors[label], label=label, edgecolors=edgecolors[label])
+		if len(custom_latent_vectors) > 0:
+			transformed_vectors = pca.transform(custom_latent_vectors)
+			custom_x = []
+			custom_y = []
+			for i, z in enumerate(transformed_vectors):
+				custom_x.append(z[0])
+				custom_y.append(z[1])
+			ax.scatter(custom_x, custom_y, c=colors[-1], label='Custom', edgecolors=edgecolors[-1])
 
 		ax.legend()
-		plt.show()
+		plt.show(block=False)
+		raw_input("Hit Enter To Close")
 		return None
 
 if __name__ == "__main__":
@@ -444,23 +438,27 @@ if __name__ == "__main__":
 		help='Number of images to plot (default 10000)')
 	parser.add_argument('--custom_latent_vectors',
 		action='store',
-		default=None,
+		default='[]',
 		help='Set of latent vectors to map in t-SNE')
+	parser.add_argument('--z_dim',
+		action='store',
+		default=2,
+		help='Number of dimensions for latent vector')
 	args = parser.parse_args()
 
 	if args.train:
-		model = AdversarialAutoencoder()
+		model = AdversarialAutoencoder(z_dim=int(args.z_dim))
 		model.train()
 	elif args.sample:
-		model = AdversarialAutoencoder()
+		model = AdversarialAutoencoder(z_dim=int(args.z_dim))
 		model.load_last_saved_model()
-		model.generate_sample_image(sample_latent_vector=args.latent_vector)
+		model.generate_sample_image(sample_latent_vector=eval(args.latent_vector))
 	elif args.samplegrid:
 		if isinstance(args.range_z1, basestring):
 			args.range_z1 = eval(args.range_z1)
 		if isinstance(args.range_z2, basestring):
 			args.range_z2 = eval(args.range_z2)
-		model = AdversarialAutoencoder()
+		model = AdversarialAutoencoder(z_dim=int(args.z_dim))
 		model.load_last_saved_model()
 		model.generate_sample_image_grid(
 			n_x=int(args.no_steps_z1), 
@@ -468,11 +466,11 @@ if __name__ == "__main__":
 			n_y=int(args.no_steps_z2), 
 			y_range=args.range_z2)
 	elif args.plot:
-		model = AdversarialAutoencoder()
+		model = AdversarialAutoencoder(z_dim=int(args.z_dim))
 		model.load_last_saved_model()
 		model.plot_latent_vectors(n_test=int(args.no_images))
 	elif args.plot_hi:
-		model = AdversarialAutoencoder()
+		model = AdversarialAutoencoder(z_dim=int(args.z_dim))
 		model.load_last_saved_model()
 		model.plot_high_dim(n_test=int(args.no_images), custom_latent_vectors=eval(args.custom_latent_vectors))
 	else:
