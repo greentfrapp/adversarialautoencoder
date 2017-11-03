@@ -229,7 +229,7 @@ class AdversarialAutoencoder(object):
 		return None
 
 	# Generate a single sample image
-	def generate_sample_image(self, sample_latent_vector=None):
+	def generate_sample_image(self, sample_latent_vector=None, title=None):
 		if sample_latent_vector is None:
 			sample_latent_vector = np.zeros(self.z_dim)
 		elif len(sample_latent_vector) < self.z_dim:
@@ -239,8 +239,8 @@ class AdversarialAutoencoder(object):
 			print("Too many dimensions for latent vector, shortening vector...")
 			sample_latent_vector = sample_latent_vector[:self.z_dim]
 		print("Generating image for latent vector: {}".format(sample_latent_vector))
-		scale_x = 8.
-		scale_y = 8.
+		scale_x = 4.
+		scale_y = 4.
 		fig = plt.figure(figsize=(scale_x, scale_y))
 		gs = gridspec.GridSpec(1, 1)
 		z = np.reshape(sample_latent_vector, (1, self.z_dim))
@@ -251,9 +251,11 @@ class AdversarialAutoencoder(object):
 		ax.set_xticks([])
 		ax.set_yticks([])
 		ax.set_aspect('equal')
+		if title is None:
+			title = str(sample_latent_vector)
+		ax.set_title(title)
 		fig.add_subplot(ax)
 		plt.show(block=False)
-		raw_input("Hit Enter To Close")
 		return None
 		
 	# Generate a grid of sample images
@@ -293,7 +295,6 @@ class AdversarialAutoencoder(object):
 			ax.set_aspect('equal')
 			fig.add_subplot(ax)
 		plt.show(block=False)
-		raw_input("Hit Enter To Close")
 		return None
 
 	# Encodes images and plots the encodings
@@ -330,7 +331,6 @@ class AdversarialAutoencoder(object):
 
 		ax.legend()
 		plt.show(block=False)
-		raw_input("Hit Enter To Close")
 		return None
 
 	def plot_high_dim(self, dataset_x=None, dataset_y=None, n_test=10000, custom_latent_vectors=[]):
@@ -385,10 +385,21 @@ class AdversarialAutoencoder(object):
 
 		ax.legend()
 		plt.show(block=False)
-		raw_input("Hit Enter To Close")
+		new_pca_vector = None
+		while True:
+			new_pca_vector = raw_input("New point: ")
+			if new_pca_vector == "q":
+				break
+			self.pca2img(pca, eval(new_pca_vector))
 		return None
 
-if __name__ == "__main__":
+	def pca2img(self, pca, pca_vector):
+		pca_vector = np.array(pca_vector).reshape(1,2)
+		z = pca.inverse_transform(pca_vector)
+		self.generate_sample_image(sample_latent_vector=z[0], title=str(pca_vector))
+		return None
+
+def main():
 	parser = argparse.ArgumentParser(
 		description="Replicates the Adversarial Autoencoder architecture, refer to https://arxiv.org/abs/1511.05644",
 		epilog="Use --train to train a model, followed by --sample/--samplegrid/--plot to generate sample images or plot encoded vectors.")
@@ -475,3 +486,9 @@ if __name__ == "__main__":
 		model.plot_high_dim(n_test=int(args.no_images), custom_latent_vectors=eval(args.custom_latent_vectors))
 	else:
 		parser.print_help()
+	raw_input("Hit Enter To Close")
+
+
+if __name__ == "__main__":
+	main()
+	
