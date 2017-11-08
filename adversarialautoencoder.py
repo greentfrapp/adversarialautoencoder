@@ -390,7 +390,8 @@ class AdversarialAutoencoder(object):
 			new_pca_vector = raw_input("New point: ")
 			if new_pca_vector == "q":
 				break
-			self.pca2img(pca, eval(new_pca_vector), n_variants=5)
+			#self.pca2img(pca, eval(new_pca_vector), n_variants=5)
+			self.pca2img(pca, eval(new_pca_vector))
 		return None
 
 	def pca2img(self, pca, pca_vector, n_variants=0):
@@ -399,9 +400,11 @@ class AdversarialAutoencoder(object):
 		if n_variants > 0:
 			z_variants = self.pca_inverse_variant(pca, z[0], n=n_variants)
 			for variant in z_variants:
-				self.generate_sample_image(sample_latent_vector=variant, title=str(pca_vector))
+				self.generate_sample_image(sample_latent_vector=variant, title="PCA: {} Magnitude: {}".format(pca_vector, np.linalg.norm(variant)))
 		else:
-			self.generate_sample_image(sample_latent_vector=z[0], title=str(pca_vector))
+			#self.generate_sample_image(sample_latent_vector=z[0], title=str(pca_vector))
+			z_variant_min = self.pca_inverse_variant_min(pca, z[0])
+			self.generate_sample_image(sample_latent_vector=z_variant_min, title="PCA: {} Magnitude: {}".format(pca_vector, np.linalg.norm(z_variant_min)))
 		
 		return None
 
@@ -445,6 +448,26 @@ class AdversarialAutoencoder(object):
 			batch_z.append(z + scale * ortho)
 
 		return batch_z
+
+	def pca_inverse_variant_min(self, pca, z):
+		vector_a = pca.components_[0]
+		vector_b = pca.components_[1]
+		scale = vector_a[-1] / vector_b[-1]
+		ortho = np.random.random(len(vector_a))
+
+		sum_a = 0
+		sum_b = 0
+		for i in range(len(vector_a) - 2):
+			sum_a += vector_a[i] * ortho[i]
+			sum_b += vector_b[i] * ortho[i]
+
+		ortho[-2] = - (sum_a - scale * sum_b) / (vector_a[-2] - scale * vector_b[-2])
+		ortho[-1] = - (sum_a + vector_a[-2] * ortho[-2]) / vector_a[-1]
+
+		min_scale = - (np.dot(z, ortho) / np.linalg.norm(ortho))
+		new_z = z + min_scale * ortho
+
+		return new_z
 
 def main():
 	parser = argparse.ArgumentParser(
