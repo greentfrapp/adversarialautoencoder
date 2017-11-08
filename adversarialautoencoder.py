@@ -238,7 +238,7 @@ class AdversarialAutoencoder(object):
 		elif len(sample_latent_vector) > self.z_dim:
 			print("Too many dimensions for latent vector, shortening vector...")
 			sample_latent_vector = sample_latent_vector[:self.z_dim]
-		print("Generating image for latent vector: {}".format(sample_latent_vector))
+		print("Generating image for latent vector: {} of length {}".format(sample_latent_vector, np.linalg.norm(sample_latent_vector)))
 		scale_x = 4.
 		scale_y = 4.
 		fig = plt.figure(figsize=(scale_x, scale_y))
@@ -390,14 +390,61 @@ class AdversarialAutoencoder(object):
 			new_pca_vector = raw_input("New point: ")
 			if new_pca_vector == "q":
 				break
-			self.pca2img(pca, eval(new_pca_vector))
+			self.pca2img(pca, eval(new_pca_vector), n_variants=5)
 		return None
 
-	def pca2img(self, pca, pca_vector):
+	def pca2img(self, pca, pca_vector, n_variants=0):
 		pca_vector = np.array(pca_vector).reshape(1,2)
 		z = pca.inverse_transform(pca_vector)
-		self.generate_sample_image(sample_latent_vector=z[0], title=str(pca_vector))
+		if n_variants > 0:
+			z_variants = self.pca_inverse_variant(pca, z[0], n=n_variants)
+			for variant in z_variants:
+				self.generate_sample_image(sample_latent_vector=variant, title=str(pca_vector))
+		else:
+			self.generate_sample_image(sample_latent_vector=z[0], title=str(pca_vector))
+		
 		return None
+
+	def pca_inverse_variant(self, pca, z, n=10, min_mag=3, max_mag=5):
+		vector_a = pca.components_[0]
+		vector_b = pca.components_[1]
+		scale = vector_a[-1] / vector_b[-1]
+		ortho = np.random.random(len(vector_a))
+
+		n = int(n / 2)
+
+		sum_a = 0
+		sum_b = 0
+		for i in range(len(vector_a) - 2):
+			sum_a += vector_a[i] * ortho[i]
+			sum_b += vector_b[i] * ortho[i]
+
+		ortho[-2] = - (sum_a - scale * sum_b) / (vector_a[-2] - scale * vector_b[-2])
+		ortho[-1] = - (sum_a + vector_a[-2] * ortho[-2]) / vector_a[-1]
+
+		initial_scale = np.roots([np.linalg.norm(ortho)**2,2 * np.dot(ortho,z),np.linalg.norm(z)**2 - min_mag**2])
+		while np.sum(np.iscomplex(initial_scale)) != 0:
+			min_mag += 1
+			print("Unable to comply with minimum magnitude; increasing minimum magnitude to {}".format(min_mag))
+			if min_mag >= max_mag:
+				max_mag = min_mag + 1
+				print("Minimum magnitude exceeds maximum magnitude; increasing maximum magnitude to {}".format(max_mag))
+			initial_scale = np.roots([np.linalg.norm(ortho)**2,2 * np.dot(ortho,z),np.linalg.norm(z)**2 - min_mag**2])
+
+		mag_step = (max_mag - min_mag) / (n - 1.0)
+		mag_values = np.arange(min_mag,max_mag + mag_step / 10.0, mag_step)
+
+		scales = [initial_scale[np.argmax(initial_scale)],initial_scale[np.argmin(initial_scale)]]
+		for mag in mag_values[1:]:
+			roots = np.roots([np.linalg.norm(ortho)**2,2 * np.dot(ortho,z),np.linalg.norm(z)**2 - mag**2])
+			scales.append(roots[np.argmax(roots)])
+			scales.append(roots[np.argmin(roots)])
+
+		batch_z = []
+		for scale in scales:
+			batch_z.append(z + scale * ortho)
+
+		return batch_z
 
 def main():
 	parser = argparse.ArgumentParser(

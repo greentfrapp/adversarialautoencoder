@@ -1,6 +1,8 @@
 # Adversarial Autoencoder
 Replicates Adversarial Autoencoder architecture from [Makhzani, Alireza, et al. "Adversarial autoencoders." arXiv preprint arXiv:1511.05644 (2015)](https://arxiv.org/abs/1511.05644). 
 
+![alt text](https://raw.githubusercontent.com/greentfrapp/adversarialautoencoder/master/basic_architecture.png "Basic Adversarial Autoencoder Architecture")
+
 The code is adapted from Naresh's implementation [here](https://github.com/Naresh1318/Adversarial_Autoencoder). Thanks Naresh!
 
 ## General
@@ -70,22 +72,13 @@ python adversarialautoencoder.py --plot -i 1000
 ```
 will encode and plot 1000 images.
 
-Plot of latent vectors after training for 1000 epochs, batch size 100, learning rate 0.001 and beta1 0.9 on AdamOptimizer, with 10000 images from the MNIST test set.
+Plot of latent vectors after training for 1000 epochs, batch size 100, learning rate 0.001 and beta1 0.9 on AdamOptimizer, with 10000 images from the MNIST test set and z_dim = 2.
 
-![alt text](https://raw.githubusercontent.com/greentfrapp/adversarialautoencoder/master/plot.png "Sample Image Grid")
+![alt text](https://raw.githubusercontent.com/greentfrapp/adversarialautoencoder/master/plot.png "Latent Space Plot")
 
-## Tensorboard Graphs
+The images map poorly to the latent space and as mentioned in Makhanzi (2015) Appendix A.1, the dimension of the latent space should match the intrinsic dimensionality of the data (5 to 8 in the case of MNIST).
 
-Here are the losses from the autoencoder, discriminator and encoder (generator) across the 1000 epochs x 550 steps = 550k steps
+Here is a plot of the latent vectors with z_dim = 8, visualized via t-SNE mapping. Notice the more well-defined clusters across the different classes.
 
-### autoencoder_loss
+![alt text](https://raw.githubusercontent.com/greentfrapp/adversarialautoencoder/master/plot2.png "Latent Space Plot")
 
-![alt text](https://raw.githubusercontent.com/greentfrapp/adversarialautoencoder/master/Autoencoder_loss.png "Autoencoder Loss")
-
-### discriminator_loss
-
-![alt text](https://raw.githubusercontent.com/greentfrapp/adversarialautoencoder/master/Discriminator_loss.png "Discriminator Loss")
-
-### encoder_loss
-
-![alt text](https://raw.githubusercontent.com/greentfrapp/adversarialautoencoder/master/Encoder_loss.png "Encoder Loss")
