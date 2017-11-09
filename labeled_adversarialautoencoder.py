@@ -133,6 +133,7 @@ class LabeledAdversarialAutoencoder(AdversarialAutoencoder):
 		return tensorboard_path, saved_model_path, log_path
 
 	# Samples a point from a normal distribution
+	"""
 	def generate_sample_prior(self, mean, stdev, onehotlabels):
 		priors = None
 		for onehotlabel in onehotlabels:
@@ -148,6 +149,36 @@ class LabeledAdversarialAutoencoder(AdversarialAutoencoder):
 			else:
 				priors = np.concatenate((priors, z), axis=1)
 		return priors.T
+	"""
+
+	# Samples a point from a normal distribution
+	def generate_sample_prior(self, mean, stdev, onehotlabels):
+		nominal_labels = [4]
+		anomalous_labels = [0,1,2,3,5,6,7,8,9]
+		r = 10
+		mean = {}
+		stdev = {}
+		for label in np.arange(10):
+			if label in nominal_labels:
+				mean[label] = [0, 0]
+				stdev[label] = [5, 5]
+			if label in anomalous_labels:
+				mean_x = r * np.sin((2 * np.pi * anomalous_labels.index(label)) / len(anomalous_labels))
+				mean_y = r * np.cos((2 * np.pi * anomalous_labels.index(label)) / len(anomalous_labels))
+				mean[label] = [mean_x, mean_y]
+				stdev[label] = [5, 5]
+
+		priors = None
+		for onehotlabel in onehotlabels:
+			label = np.argmax(onehotlabel)
+			norm_z = np.random.randn(1, 2)
+			z = (norm_z + mean[label]) * stdev[label]
+			
+			if priors is None:
+				priors = z
+			else:
+				priors = np.concatenate((priors, z), axis=0)
+		return priors
 
 	# Returns the losses for logging
 	def get_loss(self, batch_x, batch_y, z_real_dist):
