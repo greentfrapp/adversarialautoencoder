@@ -4,6 +4,10 @@ Makhzani, Alireza, et al. "Adversarial autoencoders." arXiv preprint arXiv:1511.
 https://arxiv.org/abs/1511.05644
 Refer to Appendix A.1 from paper for implementation details
 """
+try:
+	raw_input
+except:
+	raw_input = input
 
 import argparse
 import random
@@ -150,7 +154,7 @@ class AdversarialAutoencoder(object):
 			datetime.datetime.now(),
 			z_dim,
 			batch_size,
-			n_epochs)
+			n_epochs).replace(':', '-')
 		tensorboard_path = self.results_path + folder_name + '/tensorboard'
 		saved_model_path = self.results_path + folder_name + '/saved_models/'
 		log_path = self.results_path + folder_name + '/log'
@@ -260,23 +264,9 @@ class AdversarialAutoencoder(object):
 		
 	# Generate a grid of sample images
 	def generate_sample_image_grid(self, n_x=10, x_range=[-10, 10], n_y=10, y_range=[-10, 10]):
-		if n_x == 1:
-			step_x = 1
-			x_range[1] = x_range[0] + 1
-		else:
-			step_x = (x_range[1] - x_range[0]) / (n_x - 1)
-			# extend range so that np.arange is inclusive of x_range[1]
-			x_range[1] += step_x
-		if n_y == 1:
-			step_y = 1
-			y_range[1] = y_range[0] + 1
-		else:
-			step_y = (y_range[1] - y_range[0]) / (n_y - 1)
-			# extend range so that np.arange is inclusive of y_range[1]
-			y_range[1] += step_y
 
-		x_points = np.arange(x_range[0], x_range[1], step_x).astype(np.float32)
-		y_points = np.arange(y_range[0], y_range[1], step_y).astype(np.float32)[::-1] # reverses y_points so that graph is negative at bottom
+		x_points = np.linspace(x_range[0], x_range[1], n_x).astype(np.float32)
+		y_points = np.linspace(y_range[0], y_range[1], n_y).astype(np.float32)[::-1] # reverses y_points so that graph is negative at bottom
 
 		scale_x = 8. / n_x
 		scale_y = 8. / n_y
@@ -535,9 +525,9 @@ def main():
 		model.load_last_saved_model()
 		model.generate_sample_image(sample_latent_vector=eval(args.latent_vector))
 	elif args.samplegrid:
-		if isinstance(args.range_z1, basestring):
+		if isinstance(args.range_z1, str):
 			args.range_z1 = eval(args.range_z1)
-		if isinstance(args.range_z2, basestring):
+		if isinstance(args.range_z2, str):
 			args.range_z2 = eval(args.range_z2)
 		model = AdversarialAutoencoder(z_dim=int(args.z_dim))
 		model.load_last_saved_model()
