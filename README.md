@@ -24,6 +24,8 @@ It also creates a `./Results` directory to store log files, Tensorboard files an
 
 ## Generate Sample Images
 
+*Note! If the `--z_dim` flag was used during training, the same `--z_dim` should be specified when generating images.*
+
 ### Single Image
 
 After training a model (at least 1 epoch), generate a single image using:
